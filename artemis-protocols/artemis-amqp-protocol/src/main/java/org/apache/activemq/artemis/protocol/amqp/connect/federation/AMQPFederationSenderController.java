@@ -38,10 +38,14 @@ import org.apache.activemq.artemis.protocol.amqp.connect.federation.AMQPFederati
 import org.apache.activemq.artemis.protocol.amqp.exceptions.ActiveMQAMQPException;
 import org.apache.activemq.artemis.protocol.amqp.exceptions.ActiveMQAMQPIllegalStateException;
 import org.apache.activemq.artemis.protocol.amqp.exceptions.ActiveMQAMQPNotImplementedException;
+import org.apache.activemq.artemis.protocol.amqp.proton.AMQPLargeMessageDelatingWriter;
 import org.apache.activemq.artemis.protocol.amqp.proton.AMQPLargeMessageWriter;
+import org.apache.activemq.artemis.protocol.amqp.proton.AMQPMessageDeflatingWriter;
 import org.apache.activemq.artemis.protocol.amqp.proton.AMQPMessageWriter;
 import org.apache.activemq.artemis.protocol.amqp.proton.AMQPSessionContext;
+import org.apache.activemq.artemis.protocol.amqp.proton.AMQPTunneledCoreLargeMessageDeflatingWriter;
 import org.apache.activemq.artemis.protocol.amqp.proton.AMQPTunneledCoreLargeMessageWriter;
+import org.apache.activemq.artemis.protocol.amqp.proton.AMQPTunneledCoreMessageDeflatingWriter;
 import org.apache.activemq.artemis.protocol.amqp.proton.AMQPTunneledCoreMessageWriter;
 import org.apache.activemq.artemis.protocol.amqp.proton.AmqpSupport;
 import org.apache.activemq.artemis.protocol.amqp.proton.MessageWriter;
@@ -89,7 +93,8 @@ public abstract class AMQPFederationSenderController implements SenderController
    protected ProtonServerSenderContext senderContext;
    protected ServerConsumer serverConsumer;
 
-   protected boolean tunnelCoreMessages; // only enabled if remote offers support.
+   protected boolean tunnelCoreMessages;  // only enabled if remote offers support.
+   protected boolean inflightCompression; // only enabled if remote offers support.
 
    protected Consumer<ErrorCondition> resourceDeletedAction;
    protected final Consumer<AMQPFederationSenderController> closedListener;
@@ -158,6 +163,10 @@ public abstract class AMQPFederationSenderController implements SenderController
       // We need to check that the remote offers ability to read tunneled core messages and
       // if not we must not send them but instead convert all messages to AMQP messages first.
       tunnelCoreMessages = verifyOfferedCapabilities(sender, AmqpSupport.CORE_MESSAGE_TUNNELING_SUPPORT);
+
+      // We need to check if the remote offers ability to accept compressed federated messages and
+      // if not we must not compress any outgoing message content.
+      inflightCompression = verifyOfferedCapabilities(sender, AmqpSupport.INFLIGHT_MESSAGE_COMPRESSION_SUPPORT);
 
       serverConsumer = createServerConsumer(senderContext);
 
@@ -259,22 +268,27 @@ public abstract class AMQPFederationSenderController implements SenderController
       if (message instanceof AMQPMessage) {
          if (message.isLargeMessage()) {
             selected = largeMessageWriter != null ? largeMessageWriter :
-               (largeMessageWriter = new CountedMessageWrites(new AMQPLargeMessageWriter(sender), metrics));
+               (largeMessageWriter = new CountedMessageWrites(
+                  (inflightCompression ? new AMQPLargeMessageDelatingWriter(sender) : new AMQPLargeMessageWriter(sender)), metrics));
          } else {
             selected = standardMessageWriter != null ? standardMessageWriter :
-               (standardMessageWriter = new CountedMessageWrites(new AMQPMessageWriter(sender), metrics));
+               (standardMessageWriter = new CountedMessageWrites(
+                  (inflightCompression ? new AMQPMessageDeflatingWriter(sender) : new AMQPMessageWriter(sender)), metrics));
          }
       } else if (tunnelCoreMessages) {
          if (message.isLargeMessage()) {
             selected = coreLargeMessageWriter != null ? coreLargeMessageWriter :
-               (coreLargeMessageWriter = new CountedMessageWrites(new AMQPTunneledCoreLargeMessageWriter(sender), metrics));
+               (coreLargeMessageWriter = new CountedMessageWrites(
+                  (inflightCompression ? new AMQPTunneledCoreLargeMessageDeflatingWriter(sender) : new AMQPTunneledCoreLargeMessageWriter(sender)), metrics));
          } else {
             selected = coreMessageWriter != null ? coreMessageWriter :
-               (coreMessageWriter = new CountedMessageWrites(new AMQPTunneledCoreMessageWriter(sender), metrics));
+               (coreMessageWriter = new CountedMessageWrites(
+                  (inflightCompression ? new AMQPTunneledCoreMessageDeflatingWriter(sender) : new AMQPTunneledCoreMessageWriter(sender)), metrics));
          }
       } else {
          selected = standardMessageWriter != null ? standardMessageWriter :
-            (standardMessageWriter = new CountedMessageWrites(new AMQPMessageWriter(sender), metrics));
+            (standardMessageWriter = new CountedMessageWrites(
+               (inflightCompression ? new AMQPMessageDeflatingWriter(sender) : new AMQPMessageWriter(sender)), metrics));
       }
 
       return selected;

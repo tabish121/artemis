@@ -95,7 +95,8 @@ public final class AMQPFederationAddressSenderController extends AMQPFederationS
       sender.setOfferedCapabilities(new Symbol[] {FEDERATION_ADDRESS_RECEIVER});
       // We indicate desired to meet specification that we cannot use a capability unless we
       // indicated it was desired, however unless offered by the remote we cannot use it.
-      sender.setDesiredCapabilities(new Symbol[] {AmqpSupport.CORE_MESSAGE_TUNNELING_SUPPORT});
+      sender.setDesiredCapabilities(new Symbol[] {AmqpSupport.CORE_MESSAGE_TUNNELING_SUPPORT,
+                                                  AmqpSupport.INFLIGHT_MESSAGE_COMPRESSION_SUPPORT});
 
       final Map<String, Object> addressSourceProperties;
 

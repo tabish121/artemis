@@ -787,21 +787,40 @@ public abstract class AMQPMessage extends RefCountMessage implements org.apache.
     * the returned buffer is always decremented to avoid a leak in the case of a copied buffer being returned.
     *
     * @param deliveryCount The new delivery count for this message.
+    * @param reference The message reference that links to this AMQP message.
+    *
     * @return a Netty ByteBuf containing the encoded bytes of this Message instance
     */
    public ReadableBuffer getSendBuffer(int deliveryCount, MessageReference reference) {
+      final DeliveryAnnotations deliveryAnnotations = reference != null ? reference.getProtocolData(DeliveryAnnotations.class) : null;
+
+      return getSendBuffer(deliveryCount, reference, deliveryAnnotations);
+   }
+
+   /**
+    * Gets a ByteBuf from the Message that contains the encoded bytes to be sent on the wire.
+    * <p>
+    * When possible this method will present the bytes to the caller without copying them into a new buffer copy.  If
+    * copying is needed a new Netty buffer is created and returned. The caller should ensure that the reference count on
+    * the returned buffer is always decremented to avoid a leak in the case of a copied buffer being returned.
+    *
+    * @param deliveryCount The new delivery count for this message.
+    * @param reference The message reference that links to this AMQP message.
+    * @param deliveryAnnotations The delivery annotations to write into the outgoing message.
+    *
+    * @return a Netty ByteBuf containing the encoded bytes of this Message instance
+    */
+   public ReadableBuffer getSendBuffer(int deliveryCount, MessageReference reference, DeliveryAnnotations deliveryAnnotations) {
       ensureMessageDataScanned();
       ensureDataIsValid();
 
-      DeliveryAnnotations daToWrite = reference != null ? reference.getProtocolData(DeliveryAnnotations.class) : null;
-
-      if (reference == null) {
+      if (deliveryAnnotations == null) {
          // deliveryAnnotationsForSendBuffer is part of an older API, deprecated but still present
-         daToWrite = deliveryAnnotationsForSendBuffer;
+         deliveryAnnotations = deliveryAnnotationsForSendBuffer;
       }
 
-      if (deliveryCount > 1 || daToWrite != null || deliveryAnnotationsPosition != VALUE_NOT_PRESENT) {
-         return createDeliveryCopy(deliveryCount, daToWrite);
+      if (deliveryCount > 1 || deliveryAnnotations != null || deliveryAnnotationsPosition != VALUE_NOT_PRESENT) {
+         return createDeliveryCopy(deliveryCount, deliveryAnnotations);
       } else {
          // Common case message has no delivery annotations, no delivery annotations for the send buffer were set
          // and this is the first delivery so no re-encoding or section skipping needed.

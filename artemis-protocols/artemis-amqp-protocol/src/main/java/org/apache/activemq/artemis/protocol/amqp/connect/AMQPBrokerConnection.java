@@ -17,6 +17,7 @@
 package org.apache.activemq.artemis.protocol.amqp.connect;
 
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -135,6 +136,13 @@ public class AMQPBrokerConnection implements ClientConnectionLifeCycleListener, 
     * AMQP.
     */
    public static final boolean DEFAULT_CORE_MESSAGE_TUNNELING_ENABLED = true;
+
+   /**
+    * Default value for the inflight message compression feature that indicates if messages should be streamed as
+    * compressed binary blobs as the payload of an custom AMQP message which works along with conversions of core
+    * messages to / from AMQP.
+    */
+   public static final boolean DEFAULT_INFLIGHT_MESSAGE_COMPRESSION_ENABLED = false;
 
    private static final NettyConnectorFactory CONNECTOR_FACTORY = new NettyConnectorFactory().setServerConnector(true);
    private static final String SASL_MECHANISMS_KEY = "saslMechanisms";
@@ -557,14 +565,17 @@ public class AMQPBrokerConnection implements ClientConnectionLifeCycleListener, 
 
                   final Queue queue = server.locateQueue(getMirrorSNF(replica));
 
-                  final boolean coreTunnelingEnabled = isCoreMessageTunnelingEnabled(replica);
-                  final Symbol[] desiredCapabilities;
+                  final List<Symbol> desiredCapabilities = new ArrayList<>();
 
+                  final boolean coreTunnelingEnabled = isCoreMessageTunnelingEnabled(replica);
+                  final boolean inflightCompressionEnabled = isInflightMessageCompressionEnabled(replica);
+
+                  desiredCapabilities.add(AMQPMirrorControllerSource.MIRROR_CAPABILITY);
+                  if (inflightCompressionEnabled) {
+                     desiredCapabilities.add(AmqpSupport.INFLIGHT_MESSAGE_COMPRESSION_SUPPORT);
+                  }
                   if (coreTunnelingEnabled) {
-                     desiredCapabilities = new Symbol[] {AMQPMirrorControllerSource.MIRROR_CAPABILITY,
-                                                         AmqpSupport.CORE_MESSAGE_TUNNELING_SUPPORT};
-                  } else {
-                     desiredCapabilities = new Symbol[] {AMQPMirrorControllerSource.MIRROR_CAPABILITY};
+                     desiredCapabilities.add(AmqpSupport.CORE_MESSAGE_TUNNELING_SUPPORT);
                   }
 
                   final Symbol[] requiredOfferedCapabilities = new Symbol[] {AMQPMirrorControllerSource.MIRROR_CAPABILITY};
@@ -574,7 +585,7 @@ public class AMQPBrokerConnection implements ClientConnectionLifeCycleListener, 
                                 mirrorControllerSource::setLink,
                                 (r) -> AMQPMirrorControllerSource.validateProtocolData(protonProtocolManager.getReferenceIDSupplier(), r, getMirrorSNF(replica)),
                                 server.getNodeID().toString(),
-                                desiredCapabilities,
+                                desiredCapabilities.toArray(new Symbol[0]),
                                 null,
                                 requiredOfferedCapabilities);
                } else if (connectionElement.getType() == AMQPBrokerConnectionAddressType.FEDERATION) {
@@ -1040,6 +1051,7 @@ public class AMQPBrokerConnection implements ClientConnectionLifeCycleListener, 
       final AMQPSessionCallback sessionSPI;
 
       protected boolean tunnelCoreMessages;
+      protected boolean compressedMessages;
 
       protected AMQPMessageWriter standardMessageWriter;
       protected AMQPLargeMessageWriter largeMessageWriter;
@@ -1060,6 +1072,10 @@ public class AMQPBrokerConnection implements ClientConnectionLifeCycleListener, 
          // Did we ask for core tunneling? If so did the remote offer it in return
          tunnelCoreMessages = verifyCapabilities(sender.getDesiredCapabilities(), AmqpSupport.CORE_MESSAGE_TUNNELING_SUPPORT) &&
                               verifyOfferedCapabilities(sender, AmqpSupport.CORE_MESSAGE_TUNNELING_SUPPORT);
+
+         // Did we ask for compression of inflight messages and did the remote offer it in return
+         compressedMessages = verifyCapabilities(sender.getDesiredCapabilities(), AmqpSupport.INFLIGHT_MESSAGE_COMPRESSION_SUPPORT) &&
+                              verifyOfferedCapabilities(sender, AmqpSupport.INFLIGHT_MESSAGE_COMPRESSION_SUPPORT);
 
          return sessionSPI.createSender(senderContext, queueName, null, false);
       }
@@ -1105,6 +1121,8 @@ public class AMQPBrokerConnection implements ClientConnectionLifeCycleListener, 
             selected = standardMessageWriter != null ? standardMessageWriter :
                (standardMessageWriter = new AMQPMessageWriter(sender));
          }
+
+         // TODO: Select the compression writer and return it.
 
          return selected;
       }
@@ -1359,6 +1377,18 @@ public class AMQPBrokerConnection implements ClientConnectionLifeCycleListener, 
          return Boolean.parseBoolean(string);
       } else {
          return DEFAULT_CORE_MESSAGE_TUNNELING_ENABLED;
+      }
+   }
+
+   public static boolean isInflightMessageCompressionEnabled(AMQPMirrorBrokerConnectionElement configuration) {
+      final Object property = configuration.getProperties().get(AmqpSupport.COMPRESS_INFLIGHT_MESSAGES);
+
+      if (property instanceof Boolean booleanValue) {
+         return booleanValue;
+      } else if (property instanceof String string) {
+         return Boolean.parseBoolean(string);
+      } else {
+         return DEFAULT_INFLIGHT_MESSAGE_COMPRESSION_ENABLED;
       }
    }
 

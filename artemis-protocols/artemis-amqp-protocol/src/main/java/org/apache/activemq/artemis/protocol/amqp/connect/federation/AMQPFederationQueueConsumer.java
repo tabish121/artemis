@@ -24,8 +24,10 @@ import static org.apache.activemq.artemis.protocol.amqp.proton.AmqpSupport.AMQP_
 import static org.apache.activemq.artemis.protocol.amqp.proton.AmqpSupport.verifyDesiredCapability;
 
 import java.lang.invoke.MethodHandles;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
@@ -132,16 +134,23 @@ public final class AMQPFederationQueueConsumer extends AMQPFederationConsumer {
          receiverProperties.put(FEDERATION_RECEIVER_PRIORITY, consumerInfo.getPriority());
          receiverProperties.put(FEDERATION_POLICY_NAME, policy.getPolicyName());
 
-         protonReceiver.setSenderSettleMode(SenderSettleMode.UNSETTLED);
-         protonReceiver.setReceiverSettleMode(ReceiverSettleMode.FIRST);
-         protonReceiver.setDesiredCapabilities(new Symbol[] {FEDERATION_QUEUE_RECEIVER});
+         final List<Symbol> offeredCapabilities = new ArrayList<>();
+
          // If enabled offer core tunneling which we prefer to AMQP conversions of core as
          // the large ones will be converted to standard AMQP messages in memory. When not
          // offered the remote must not use core tunneling and AMQP conversion will be the
          // fallback.
          if (configuration.isCoreMessageTunnelingEnabled()) {
-            protonReceiver.setOfferedCapabilities(new Symbol[] {AmqpSupport.CORE_MESSAGE_TUNNELING_SUPPORT});
+            offeredCapabilities.add(AmqpSupport.CORE_MESSAGE_TUNNELING_SUPPORT);
          }
+         if (configuration.isInflightMessageCompressionEnabled()) {
+            offeredCapabilities.add(AmqpSupport.INFLIGHT_MESSAGE_COMPRESSION_SUPPORT);
+         }
+
+         protonReceiver.setSenderSettleMode(SenderSettleMode.UNSETTLED);
+         protonReceiver.setReceiverSettleMode(ReceiverSettleMode.FIRST);
+         protonReceiver.setDesiredCapabilities(new Symbol[] {FEDERATION_QUEUE_RECEIVER});
+         protonReceiver.setOfferedCapabilities(offeredCapabilities.isEmpty() ? null : offeredCapabilities.toArray(new Symbol[0]));
          protonReceiver.setProperties(receiverProperties);
          protonReceiver.setTarget(target);
          protonReceiver.setSource(source);
@@ -315,12 +324,15 @@ public final class AMQPFederationQueueConsumer extends AMQPFederationConsumer {
             throw new ActiveMQAMQPInternalErrorException(e.getMessage(), e);
          }
 
-         if (configuration.isCoreMessageTunnelingEnabled()) {
-            // We will have offered it if the option is enabled, but the remote needs to indicate it desires it
-            // otherwise we want to fail on any tunneled core messages that arrives which is the default.
-            if (verifyDesiredCapability(receiver, AmqpSupport.CORE_MESSAGE_TUNNELING_SUPPORT)) {
-               enableCoreTunneling();
-            }
+         // We will have offered any of the below if the option is enabled, but the remote needs to indicate
+         // it desires it otherwise we want to fail on any messages that arrives using these which is the default.
+
+         if (configuration.isCoreMessageTunnelingEnabled() && verifyDesiredCapability(receiver, AmqpSupport.CORE_MESSAGE_TUNNELING_SUPPORT)) {
+            enableCoreTunneling();
+         }
+
+         if (configuration.isInflightMessageCompressionEnabled() && verifyDesiredCapability(receiver, AmqpSupport.INFLIGHT_MESSAGE_COMPRESSION_SUPPORT)) {
+            enableInflightMessageDecommpression();
          }
 
          try {

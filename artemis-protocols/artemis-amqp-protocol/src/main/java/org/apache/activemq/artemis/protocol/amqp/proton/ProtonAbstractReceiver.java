@@ -16,8 +16,12 @@
  */
 package org.apache.activemq.artemis.protocol.amqp.proton;
 
-import static org.apache.activemq.artemis.protocol.amqp.proton.AMQPTunneledMessageConstants.AMQP_TUNNELED_CORE_LARGE_MESSAGE_FORMAT;
-import static org.apache.activemq.artemis.protocol.amqp.proton.AMQPTunneledMessageConstants.AMQP_TUNNELED_CORE_MESSAGE_FORMAT;
+import static org.apache.activemq.artemis.protocol.amqp.proton.AMQPArtemisMessageFormats.AMQP_TUNNELED_CORE_LARGE_MESSAGE_FORMAT;
+import static org.apache.activemq.artemis.protocol.amqp.proton.AMQPArtemisMessageFormats.AMQP_TUNNELED_CORE_MESSAGE_FORMAT;
+import static org.apache.activemq.artemis.protocol.amqp.proton.AMQPArtemisMessageFormats.AMQP_COMPRESSED_LARGE_MESSAGE_FORMAT;
+import static org.apache.activemq.artemis.protocol.amqp.proton.AMQPArtemisMessageFormats.AMQP_COMPRESSED_MESSAGE_FORMAT;
+import static org.apache.activemq.artemis.protocol.amqp.proton.AMQPArtemisMessageFormats.AMQP_COMPRESSED_TUNNELED_CORE_LARGE_MESSAGE_FORMAT;
+import static org.apache.activemq.artemis.protocol.amqp.proton.AMQPArtemisMessageFormats.AMQP_COMPRESSED_TUNNELED_CORE_MESSAGE_FORMAT;
 
 import java.lang.invoke.MethodHandles;
 import java.util.Arrays;
@@ -32,7 +36,6 @@ import org.apache.activemq.artemis.api.core.ActiveMQSecurityException;
 import org.apache.activemq.artemis.api.core.Message;
 import org.apache.activemq.artemis.api.core.SimpleString;
 import org.apache.activemq.artemis.core.persistence.OperationContext;
-import org.apache.activemq.artemis.core.persistence.impl.nullpm.NullStorageManager;
 import org.apache.activemq.artemis.core.server.RoutingContext;
 import org.apache.activemq.artemis.core.server.impl.RoutingContextImpl;
 import org.apache.activemq.artemis.core.transaction.Transaction;
@@ -92,7 +95,13 @@ public abstract class ProtonAbstractReceiver extends ProtonInitializable impleme
    // Not always used so left unallocated until needed, on attach the capabilities drive if supported
    protected MessageReader coreMessageReader;
    protected MessageReader coreLargeMessageReader;
+   protected MessageReader compressedCoreMessageReader;
+   protected MessageReader compressedCoreLargeMessageReader;
+   protected MessageReader compressedAMQPMessageReader;
+   protected MessageReader compressedAMQPLargeMessageReader;
+
    protected boolean coreTunnelingEnabled;
+   protected boolean inflightDecompressionEnabled;
 
    public ProtonAbstractReceiver(AMQPSessionCallback sessionSPI,
                                  AMQPConnectionContext connection,
@@ -465,14 +474,49 @@ public abstract class ProtonAbstractReceiver extends ProtonInitializable impleme
    }
 
    protected MessageReader trySelectMessageReader(Receiver receiver, Delivery delivery) {
-      if (delivery.getMessageFormat() == AMQP_TUNNELED_CORE_MESSAGE_FORMAT) {
+      final int messageFormat = delivery.getMessageFormat();
+      final boolean nullStorageManager = sessionSPI.isNullStorageManager();
+
+      if (messageFormat != 0) {
+         return trySelectInternalMessageReader(messageFormat, receiver, delivery);
+      } else if (delivery.isPartial() && !nullStorageManager) {
+         if (minLargeMessageSize > 0 && delivery.available() >= minLargeMessageSize) {
+            return largeMessageReader;
+         } else {
+            return null; // Not enough context to decide yet.
+         }
+      } else if (minLargeMessageSize > 0 && delivery.available() >= minLargeMessageSize && !nullStorageManager) {
+         // this is treating the case where the frameSize > minLargeMessage and the message is still large enough
+         return largeMessageReader;
+      } else {
+         // Either minLargeMessageSize < 0 which means disable or the entire message has
+         // arrived and is under the threshold so use the standard variant.
+         return standardMessageReader;
+      }
+   }
+
+   protected MessageReader trySelectInternalMessageReader(int messageFormat, Receiver receiver, Delivery delivery) {
+      if (messageFormat == AMQP_TUNNELED_CORE_MESSAGE_FORMAT) {
          failIfCoreTunnelNotEnabled();
          return coreMessageReader;
-      } else if (delivery.getMessageFormat() == AMQP_TUNNELED_CORE_LARGE_MESSAGE_FORMAT) {
+      } else if (messageFormat == AMQP_TUNNELED_CORE_LARGE_MESSAGE_FORMAT) {
          failIfCoreTunnelNotEnabled();
          return coreLargeMessageReader;
-      } else if (sessionSPI.getStorageManager() instanceof NullStorageManager) {
-         // if we are dealing with the NullStorageManager we should just make it a regular message anyways
+      } else if (messageFormat == AMQP_COMPRESSED_TUNNELED_CORE_MESSAGE_FORMAT) {
+         failIfCoreTunnelNotEnabled();
+         failIfInflightDecompressionNotEnabled();
+         return compressedCoreMessageReader;
+      } else if (messageFormat == AMQP_COMPRESSED_TUNNELED_CORE_LARGE_MESSAGE_FORMAT) {
+         failIfCoreTunnelNotEnabled();
+         failIfInflightDecompressionNotEnabled();
+         return compressedCoreLargeMessageReader;
+      } else if (messageFormat == AMQP_COMPRESSED_MESSAGE_FORMAT) {
+         failIfInflightDecompressionNotEnabled();
+         return compressedAMQPMessageReader;
+      } else if (messageFormat == AMQP_COMPRESSED_LARGE_MESSAGE_FORMAT) {
+         failIfInflightDecompressionNotEnabled();
+         return compressedAMQPLargeMessageReader;
+      } else if (sessionSPI.isNullStorageManager()) {
          return standardMessageReader;
       } else if (delivery.isPartial()) {
          if (minLargeMessageSize > 0 && delivery.available() >= minLargeMessageSize) {
@@ -481,11 +525,8 @@ public abstract class ProtonAbstractReceiver extends ProtonInitializable impleme
             return null; // Not enough context to decide yet.
          }
       } else if (minLargeMessageSize > 0 && delivery.available() >= minLargeMessageSize) {
-         // this is treating the case where the frameSize > minLargeMessage and the message is still large enough
          return largeMessageReader;
       } else {
-         // Either minLargeMessageSize < 0 which means disable or the entire message has
-         // arrived and is under the threshold so use the standard variant.
          return standardMessageReader;
       }
    }
@@ -517,9 +558,9 @@ public abstract class ProtonAbstractReceiver extends ProtonInitializable impleme
 
          Message completeMessage;
          if ((completeMessage = messageReader.readBytes(delivery)) != null) {
-            // notice the AMQP Large Message Reader will always return null
-            // and call the onMessageComplete directly
-            // since that happens asynchronously
+            // A message reader that performs out of band processing will never return a message
+            // but will instead complete the process by calling the on complete itself once the
+            // message has been fully read and processed.
             onMessageComplete(delivery, completeMessage, messageReader.getDeliveryAnnotations());
          }
       } catch (Exception e) {
@@ -679,6 +720,29 @@ public abstract class ProtonAbstractReceiver extends ProtonInitializable impleme
    protected void failIfCoreTunnelNotEnabled() {
       if (!coreTunnelingEnabled) {
          throw new UnsupportedOperationException("Core tunnel not enabled for this link");
+      }
+   }
+
+   protected void enableInflightMessageDecommpression() {
+      inflightDecompressionEnabled = true;
+
+      if (compressedCoreLargeMessageReader == null) {
+         compressedCoreLargeMessageReader = new AMQPTunneledCoreLargeMessageInflatingReader(this);
+      }
+      if (compressedCoreMessageReader == null) {
+         compressedCoreMessageReader = new AMQPTunneledCoreMessageInflatingReader(this);
+      }
+      if (compressedAMQPMessageReader == null) {
+         compressedAMQPMessageReader = new AMQPMessageInflatingReader(this);
+      }
+      if (compressedAMQPLargeMessageReader == null) {
+         compressedAMQPLargeMessageReader = new AMQPLargeMessageInflatingReader(this);
+      }
+   }
+
+   protected void failIfInflightDecompressionNotEnabled() {
+      if (!inflightDecompressionEnabled) {
+         throw new UnsupportedOperationException("Inflight message decompression not enabled for this link");
       }
    }
 
