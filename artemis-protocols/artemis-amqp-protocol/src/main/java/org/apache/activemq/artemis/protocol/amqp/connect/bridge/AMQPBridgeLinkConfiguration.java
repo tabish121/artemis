@@ -141,4 +141,18 @@ public abstract class AMQPBridgeLinkConfiguration {
          return configuration.isCoreMessageTunnelingEnabled();
       }
    }
+
+   /**
+    * {@return true if the bridge is configured to compress messages as AMQP custom messages}
+    */
+   public boolean isInflightMessageCompressionEnabled() {
+      final Object property = properties.get(AmqpSupport.COMPRESS_INFLIGHT_MESSAGES);
+      if (property instanceof Boolean) {
+         return (Boolean) property;
+      } else if (property instanceof String) {
+         return Boolean.parseBoolean((String) property);
+      } else {
+         return configuration.isInflightMessageCompressionEnabled();
+      }
+   }
 }

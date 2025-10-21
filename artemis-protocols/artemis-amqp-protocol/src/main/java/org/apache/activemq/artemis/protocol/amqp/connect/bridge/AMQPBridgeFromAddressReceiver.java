@@ -25,8 +25,10 @@ import static org.apache.activemq.artemis.protocol.amqp.proton.AmqpSupport.verif
 import static org.apache.activemq.artemis.protocol.amqp.proton.AmqpSupport.verifyDesiredCapability;
 
 import java.lang.invoke.MethodHandles;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
@@ -134,15 +136,22 @@ public class AMQPBridgeFromAddressReceiver extends AMQPBridgeReceiver {
             receiverProperties = null;
          }
 
-         protonReceiver.setSenderSettleMode(configuration.isUsingPresettledSenders() ? SenderSettleMode.SETTLED : SenderSettleMode.UNSETTLED);
-         protonReceiver.setReceiverSettleMode(ReceiverSettleMode.FIRST);
+         final List<Symbol> offeredCapabilities = new ArrayList<>();
+
          // If enabled offer core tunneling which we prefer to AMQP conversions of core as
          // the large ones will be converted to standard AMQP messages in memory. When not
          // offered the remote must not use core tunneling and AMQP conversion will be the
          // fallback.
          if (configuration.isCoreMessageTunnelingEnabled()) {
-            protonReceiver.setOfferedCapabilities(new Symbol[] {AmqpSupport.CORE_MESSAGE_TUNNELING_SUPPORT});
+            offeredCapabilities.add(AmqpSupport.CORE_MESSAGE_TUNNELING_SUPPORT);
          }
+         if (configuration.isInflightMessageCompressionEnabled()) {
+            offeredCapabilities.add(AmqpSupport.INFLIGHT_MESSAGE_COMPRESSION_SUPPORT);
+         }
+
+         protonReceiver.setSenderSettleMode(configuration.isUsingPresettledSenders() ? SenderSettleMode.SETTLED : SenderSettleMode.UNSETTLED);
+         protonReceiver.setReceiverSettleMode(ReceiverSettleMode.FIRST);
+         protonReceiver.setOfferedCapabilities(offeredCapabilities.isEmpty() ? null : offeredCapabilities.toArray(new Symbol[0]));
          protonReceiver.setProperties(receiverProperties);
          protonReceiver.setTarget(target);
          protonReceiver.setSource(source);
@@ -353,6 +362,10 @@ public class AMQPBridgeFromAddressReceiver extends AMQPBridgeReceiver {
          // If we offered core tunneling then check if the remote indicated support and enabled the readers
          if (configuration.isCoreMessageTunnelingEnabled() && verifyDesiredCapability(receiver, CORE_MESSAGE_TUNNELING_SUPPORT)) {
             enableCoreTunneling();
+         }
+
+         if (configuration.isInflightMessageCompressionEnabled() && verifyDesiredCapability(receiver, AmqpSupport.INFLIGHT_MESSAGE_COMPRESSION_SUPPORT)) {
+            enableInflightMessageDecommpression();
          }
 
          try {
