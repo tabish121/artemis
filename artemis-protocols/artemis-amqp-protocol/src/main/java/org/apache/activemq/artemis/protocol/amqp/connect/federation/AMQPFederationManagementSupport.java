@@ -413,9 +413,9 @@ public abstract class AMQPFederationManagementSupport {
       final String policyName = manager.getPolicyName();
 
       if (consumer.getRole() == FederationConsumerInfo.Role.ADDRESS_CONSUMER) {
-         management.registerUntypedControl(getFederationSourceAddressConsumerResourceName(brokerConnectionName, federationName, policyName, consumer.getConsumerInfo().getAddress()),
+         management.registerUntypedControl(getFederationSourceAddressConsumerResourceName(brokerConnectionName, federationName, policyName, consumer.getConsumerInfo().getTargetAddress()),
                                            control,
-                                           getFederationSourceAddressConsumerObjectName(management, brokerConnectionName, federationName, manager.getPolicyType().toString(), policyName, consumer.getConsumerInfo().getAddress()));
+                                           getFederationSourceAddressConsumerObjectName(management, brokerConnectionName, federationName, manager.getPolicyType().toString(), policyName, consumer.getConsumerInfo().getTargetAddress()));
       } else {
          management.registerUntypedControl(getFederationSourceQueueConsumerResourceName(brokerConnectionName, federationName, policyName, consumer.getConsumerInfo().getFqqn()),
                                            control,
@@ -439,8 +439,8 @@ public abstract class AMQPFederationManagementSupport {
       final String policyName = manager.getPolicyName();
 
       if (consumer.getRole() == FederationConsumerInfo.Role.ADDRESS_CONSUMER) {
-         management.unregisterUntypedControl(getFederationSourceAddressConsumerResourceName(brokerConnectionName, federationName, policyName, consumer.getConsumerInfo().getAddress()),
-                                             getFederationSourceAddressConsumerObjectName(management, brokerConnectionName, federationName, manager.getPolicyType().toString(), policyName, consumer.getConsumerInfo().getAddress()));
+         management.unregisterUntypedControl(getFederationSourceAddressConsumerResourceName(brokerConnectionName, federationName, policyName, consumer.getConsumerInfo().getTargetAddress()),
+                                             getFederationSourceAddressConsumerObjectName(management, brokerConnectionName, federationName, manager.getPolicyType().toString(), policyName, consumer.getConsumerInfo().getTargetAddress()));
       } else {
          management.unregisterUntypedControl(getFederationSourceQueueConsumerResourceName(brokerConnectionName, federationName, policyName, consumer.getConsumerInfo().getFqqn()),
                                              getFederationSourceQueueConsumerObjectName(management, brokerConnectionName, federationName, manager.getPolicyType().toString(), policyName, consumer.getConsumerInfo().getFqqn()));
@@ -575,9 +575,9 @@ public abstract class AMQPFederationManagementSupport {
       final String policyName = manager.getPolicyName();
 
       if (consumer.getRole() == FederationConsumerInfo.Role.ADDRESS_CONSUMER) {
-         management.registerUntypedControl(getFederationTargetAddressConsumerResourceName(remoteNodeId, brokerConnectionName, federationName, policyName, consumer.getConsumerInfo().getAddress()),
+         management.registerUntypedControl(getFederationTargetAddressConsumerResourceName(remoteNodeId, brokerConnectionName, federationName, policyName, consumer.getConsumerInfo().getTargetAddress()),
                                            control,
-                                           getFederationTargetAddressConsumerObjectName(management, remoteNodeId, brokerConnectionName, federationName, manager.getPolicyType().toString(), policyName, consumer.getConsumerInfo().getAddress()));
+                                           getFederationTargetAddressConsumerObjectName(management, remoteNodeId, brokerConnectionName, federationName, manager.getPolicyType().toString(), policyName, consumer.getConsumerInfo().getTargetAddress()));
       } else {
          management.registerUntypedControl(getFederationTargetQueueConsumerResourceName(remoteNodeId, brokerConnectionName, federationName, policyName, consumer.getConsumerInfo().getFqqn()),
                                            control,
@@ -601,8 +601,8 @@ public abstract class AMQPFederationManagementSupport {
       final String policyName = manager.getPolicyName();
 
       if (consumer.getRole() == FederationConsumerInfo.Role.ADDRESS_CONSUMER) {
-         management.unregisterUntypedControl(getFederationTargetAddressConsumerResourceName(remoteNodeId, brokerConnectionName, federationName, policyName, consumer.getConsumerInfo().getAddress()),
-                                             getFederationTargetAddressConsumerObjectName(management, remoteNodeId, brokerConnectionName, federationName, manager.getPolicyType().toString(), policyName, consumer.getConsumerInfo().getAddress()));
+         management.unregisterUntypedControl(getFederationTargetAddressConsumerResourceName(remoteNodeId, brokerConnectionName, federationName, policyName, consumer.getConsumerInfo().getTargetAddress()),
+                                             getFederationTargetAddressConsumerObjectName(management, remoteNodeId, brokerConnectionName, federationName, manager.getPolicyType().toString(), policyName, consumer.getConsumerInfo().getTargetAddress()));
       } else {
          management.unregisterUntypedControl(getFederationTargetQueueConsumerResourceName(remoteNodeId, brokerConnectionName, federationName, policyName, consumer.getConsumerInfo().getFqqn()),
                                              getFederationTargetQueueConsumerObjectName(management, remoteNodeId, brokerConnectionName, federationName, manager.getPolicyType().toString(), policyName, consumer.getConsumerInfo().getFqqn()));

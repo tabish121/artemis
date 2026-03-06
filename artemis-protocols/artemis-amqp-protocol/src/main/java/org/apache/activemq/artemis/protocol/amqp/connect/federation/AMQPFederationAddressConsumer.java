@@ -96,7 +96,7 @@ public abstract class AMQPFederationAddressConsumer extends AMQPFederationConsum
       if (federation.getCapabilities().isUseFQQNAddressSubscriptions()) {
          return "federation-" + federation.getName() +
                 "-policy-" + policy.getPolicyName() +
-                "-address-receiver-" + consumerInfo.getAddress() +
+                "-address-receiver-" + consumerInfo.getTargetAddress() +
                 "-" + federation.getServer().getNodeID() +
                 "-" + LINK_SEQUENCE_ID.incrementAndGet();
       } else {
@@ -107,7 +107,7 @@ public abstract class AMQPFederationAddressConsumer extends AMQPFederationConsum
          // connection recovery which is arguably less broken than the sequence ID variant which
          // creates unstable subscription queues that can be orphaned or consumed out of order.
          return "federation-" + federation.getName() +
-                "-address-receiver-" + consumerInfo.getAddress() +
+                "-address-receiver-" + consumerInfo.getTargetAddress() +
                 "-" + federation.getServer().getNodeID();
       }
    }
@@ -148,10 +148,10 @@ public abstract class AMQPFederationAddressConsumer extends AMQPFederationConsum
          if (federation.getCapabilities().isUseFQQNAddressSubscriptions()) {
             source.setAddress(consumerInfo.getFqqn());
          } else {
-            source.setAddress(consumerInfo.getAddress()); // Legacy behavior
+            source.setAddress(consumerInfo.getSourceAddress()); // Legacy behavior
          }
 
-         target.setAddress(consumerInfo.getAddress());
+         target.setAddress(consumerInfo.getTargetAddress());
 
          final Map<String, Object> addressSourceProperties = new HashMap<>();
          // If the remote needs to create the address then it should apply these
@@ -303,7 +303,7 @@ public abstract class AMQPFederationAddressConsumer extends AMQPFederationConsum
       AMQPFederatedAddressDeliveryHandler(AMQPSessionContext session, FederationConsumerInfo consumerInfo, Receiver receiver) {
          super(session.getSessionSPI(), session.getAMQPConnectionContext(), session, receiver);
 
-         this.cachedAddress = SimpleString.of(consumerInfo.getAddress());
+         this.cachedAddress = SimpleString.of(consumerInfo.getTargetAddress());
       }
 
       @Override

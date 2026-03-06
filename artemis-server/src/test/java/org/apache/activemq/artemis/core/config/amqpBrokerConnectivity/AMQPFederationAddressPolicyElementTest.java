@@ -120,5 +120,13 @@ public class AMQPFederationAddressPolicyElementTest {
       config2.setMaxHops(10);
       assertEquals(config1, config2);
       assertEquals(config1.hashCode(), config2.hashCode());
+
+      // Wildcard Subscriptions
+      config1.setEnableWildcardSubscriptions(true);
+      assertNotEquals(config1, config2);
+      assertNotEquals(config1.hashCode(), config2.hashCode());
+      config2.setEnableWildcardSubscriptions(true);
+      assertEquals(config1, config2);
+      assertEquals(config1.hashCode(), config2.hashCode());
    }
 }

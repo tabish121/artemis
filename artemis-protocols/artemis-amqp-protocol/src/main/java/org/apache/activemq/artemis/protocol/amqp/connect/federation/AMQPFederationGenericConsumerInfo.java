@@ -20,12 +20,8 @@ package org.apache.activemq.artemis.protocol.amqp.connect.federation;
 import java.util.Objects;
 import java.util.UUID;
 
-import org.apache.activemq.artemis.api.config.ActiveMQDefaultConfiguration;
 import org.apache.activemq.artemis.api.core.RoutingType;
-import org.apache.activemq.artemis.protocol.amqp.federation.Federation;
 import org.apache.activemq.artemis.protocol.amqp.federation.FederationConsumerInfo;
-import org.apache.activemq.artemis.protocol.amqp.federation.FederationReceiveFromAddressPolicy;
-import org.apache.activemq.artemis.utils.CompositeAddress;
 
 /**
  * Information and identification class for Federation consumers created to federate queues and addresses. Instances of
@@ -37,7 +33,8 @@ public class AMQPFederationGenericConsumerInfo implements FederationConsumerInfo
    public static final String QUEUE_NAME_FORMAT_STRING = "${address}::${routeType}";
 
    private final Role role;
-   private final String address;
+   private final String sourceAddress;
+   private final String targetAddress;
    private final String queueName;
    private final RoutingType routingType;
    private final String filterString;
@@ -45,38 +42,17 @@ public class AMQPFederationGenericConsumerInfo implements FederationConsumerInfo
    private final int priority;
    private final String id;
 
-   public AMQPFederationGenericConsumerInfo(Role role, String address, String queueName, RoutingType routingType,
-                                        String filterString, String fqqn, int priority) {
+   public AMQPFederationGenericConsumerInfo(Role role, String sourceAddress, String targetAddress, String queueName,
+                                            RoutingType routingType, String filterString, String fqqn, int priority) {
       this.role = role;
-      this.address = address;
+      this.sourceAddress = sourceAddress;
+      this.targetAddress = targetAddress;
       this.queueName = queueName;
       this.routingType = routingType;
       this.filterString = filterString;
       this.fqqn = fqqn;
       this.priority = priority;
       this.id = UUID.randomUUID().toString();
-   }
-
-   /**
-    * Factory for creating federation address consumer information objects from server resources.
-    *
-    * @param address      The address being federated, the remote consumer will be created under this address.
-    * @param queueName    The name of the remote queue that will be created in order to route messages here.
-    * @param routingType  The routing type to assign the remote consumer.
-    * @param filterString A filter string used by the federation instance to limit what enters the remote queue.
-    * @param federation   The parent {@link Federation} that this federation consumer is created for
-    * @param policy       The {@link FederationReceiveFromAddressPolicy} that triggered this information object to be
-    *                     created.
-    * @return a newly created and configured {@link FederationConsumerInfo} instance
-    */
-   public static AMQPFederationGenericConsumerInfo build(String address, String queueName, RoutingType routingType, String filterString, Federation federation, FederationReceiveFromAddressPolicy policy) {
-      return new AMQPFederationGenericConsumerInfo(Role.ADDRESS_CONSUMER,
-                                               address,
-                                               queueName,
-                                               routingType,
-                                               filterString,
-                                               CompositeAddress.toFullyQualified(address, queueName),
-                                               ActiveMQDefaultConfiguration.getDefaultConsumerPriority());
    }
 
    @Override
@@ -95,8 +71,13 @@ public class AMQPFederationGenericConsumerInfo implements FederationConsumerInfo
    }
 
    @Override
-   public String getAddress() {
-      return address;
+   public String getSourceAddress() {
+      return sourceAddress;
+   }
+
+   @Override
+   public String getTargetAddress() {
+      return targetAddress;
    }
 
    @Override
@@ -130,7 +111,8 @@ public class AMQPFederationGenericConsumerInfo implements FederationConsumerInfo
 
       return role == other.role &&
              priority == other.priority &&
-             Objects.equals(address, other.address) &&
+             Objects.equals(sourceAddress, other.sourceAddress) &&
+             Objects.equals(targetAddress, other.targetAddress) &&
              Objects.equals(queueName, other.queueName) &&
              routingType == other.routingType &&
              Objects.equals(filterString, other.filterString) &&
@@ -139,7 +121,7 @@ public class AMQPFederationGenericConsumerInfo implements FederationConsumerInfo
 
    @Override
    public int hashCode() {
-      return Objects.hash(role, address, queueName, routingType, filterString, fqqn, priority);
+      return Objects.hash(role, sourceAddress, targetAddress, queueName, routingType, filterString, fqqn, priority);
    }
 
    @Override

@@ -299,6 +299,11 @@ public final class AMQPFederationConstants {
    public static final String ADDRESS_ENABLE_DIVERT_BINDINGS = "enable-divert-bindings";
 
    /**
+    * Encodes boolean value that controls if the address federation should use wildcard subscriptions when possible.
+    */
+   public static final String ADDRESS_ENABLE_WILDCARD_SUBSCRIPTIONS = "enable-wildcard-subscriptions";
+
+   /**
     * Encodes a {@link Map} of String keys and values that are carried along in the federation policy (address or
     * queue). These values can be used to add extended configuration to the policy object such as overriding settings
     * from the connection URI.

@@ -292,6 +292,7 @@ public final class AMQPFederationQueuePolicyManager extends AMQPFederationLocalP
       final String filterString = selectFilter(consumer);
 
       return new AMQPFederationGenericConsumerInfo(Role.QUEUE_CONSUMER,
+                                                   address, // Source and target address are the same for Queue consumers
                                                    address,
                                                    queueName,
                                                    queue.getRoutingType(),

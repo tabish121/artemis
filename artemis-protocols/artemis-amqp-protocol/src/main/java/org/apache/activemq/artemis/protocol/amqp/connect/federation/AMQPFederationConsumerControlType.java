@@ -86,7 +86,7 @@ public class AMQPFederationConsumerControlType extends AbstractControl implement
       }
       clearIO();
       try {
-         return consumerInfo.getAddress();
+         return consumerInfo.getTargetAddress();
       } finally {
          blockOnIO();
       }

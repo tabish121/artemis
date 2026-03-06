@@ -2035,7 +2035,7 @@ public class AMQPFederationAddressPolicyTest extends AmqpClientTestSupport {
 
       final FederationReceiveFromAddressPolicy policy =
          new FederationReceiveFromAddressPolicy("test-address-policy",
-                                                true, 30_000L, 1000L, 1, true,
+                                                true, 30_000L, 1000L, 1, true, false,
                                                 includes, excludes, null, null,
                                                 DEFAULT_WILDCARD_CONFIGURATION);
 
@@ -2081,7 +2081,7 @@ public class AMQPFederationAddressPolicyTest extends AmqpClientTestSupport {
 
       final FederationReceiveFromAddressPolicy policy =
          new FederationReceiveFromAddressPolicy("test-address-policy",
-                                                true, 30_000L, 1000L, 1, true,
+                                                true, 30_000L, 1000L, 1, true, false,
                                                 includes, excludes, null, transformerConfiguration,
                                                 DEFAULT_WILDCARD_CONFIGURATION);
 
@@ -2119,7 +2119,7 @@ public class AMQPFederationAddressPolicyTest extends AmqpClientTestSupport {
 
       final FederationReceiveFromAddressPolicy policy =
          new FederationReceiveFromAddressPolicy("test-address-policy",
-                                                true, 30_000L, 1000L, 1, true,
+                                                true, 30_000L, 1000L, 1, true, false,
                                                 includes, null, properties, null,
                                                 DEFAULT_WILDCARD_CONFIGURATION);
 
@@ -2189,7 +2189,7 @@ public class AMQPFederationAddressPolicyTest extends AmqpClientTestSupport {
 
       final FederationReceiveFromAddressPolicy policy =
          new FederationReceiveFromAddressPolicy("test-address-policy",
-                                                true, 30_000L, 1000L, 1, true,
+                                                true, 30_000L, 1000L, 1, true, false,
                                                 includes, null, properties, null,
                                                 DEFAULT_WILDCARD_CONFIGURATION);
 
@@ -2261,7 +2261,7 @@ public class AMQPFederationAddressPolicyTest extends AmqpClientTestSupport {
 
       final FederationReceiveFromAddressPolicy policy =
          new FederationReceiveFromAddressPolicy("test-address-policy",
-                                                true, 30_000L, 1000L, 1, true,
+                                                true, 30_000L, 1000L, 1, true, false,
                                                 includes, null, properties, null,
                                                 DEFAULT_WILDCARD_CONFIGURATION);
 
@@ -2335,7 +2335,7 @@ public class AMQPFederationAddressPolicyTest extends AmqpClientTestSupport {
 
       final FederationReceiveFromAddressPolicy policy =
          new FederationReceiveFromAddressPolicy("test-address-policy",
-                                                true, 30_000L, 1000L, 1, true,
+                                                true, 30_000L, 1000L, 1, true, false,
                                                 includes, null, properties, null,
                                                 DEFAULT_WILDCARD_CONFIGURATION);
 
@@ -2414,7 +2414,7 @@ public class AMQPFederationAddressPolicyTest extends AmqpClientTestSupport {
 
       final FederationReceiveFromAddressPolicy policy =
          new FederationReceiveFromAddressPolicy("test-address-policy",
-                                                true, 30_000L, 1000L, 1, true,
+                                                true, 30_000L, 1000L, 1, true, false,
                                                 includes, null, properties, transformerConfiguration,
                                                 DEFAULT_WILDCARD_CONFIGURATION);
 
@@ -6705,7 +6705,7 @@ public class AMQPFederationAddressPolicyTest extends AmqpClientTestSupport {
 
       final FederationReceiveFromAddressPolicy policy =
          new FederationReceiveFromAddressPolicy("test-address-policy",
-                                                true, 30_000L, 1000L, -1, true,
+                                                true, 30_000L, 1000L, -1, true, false,
                                                 includes, null, properties, null,
                                                 DEFAULT_WILDCARD_CONFIGURATION);
 
@@ -7063,7 +7063,7 @@ public class AMQPFederationAddressPolicyTest extends AmqpClientTestSupport {
 
       final FederationReceiveFromAddressPolicy policy =
          new FederationReceiveFromAddressPolicy("test-address-policy",
-                                                true, 30_000L, 1000L, 1, false,
+                                                true, 30_000L, 1000L, 1, false, false,
                                                 includes, null, properties, null,
                                                 DEFAULT_WILDCARD_CONFIGURATION);
 
@@ -7169,7 +7169,7 @@ public class AMQPFederationAddressPolicyTest extends AmqpClientTestSupport {
 
       final FederationReceiveFromAddressPolicy policy =
          new FederationReceiveFromAddressPolicy("test-address-policy",
-                                                true, 30_000L, 1000L, 1, true,
+                                                true, 30_000L, 1000L, 1, true, false,
                                                 includes, null, properties, null,
                                                 DEFAULT_WILDCARD_CONFIGURATION);
 

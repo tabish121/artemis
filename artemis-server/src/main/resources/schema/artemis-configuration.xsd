@@ -2454,6 +2454,7 @@
       <xsd:attribute name="max-hops" type="xsd:int" use="optional" />
       <xsd:attribute name="name" type="xsd:ID" use="required" />
       <xsd:attribute name="enable-divert-bindings" type="xsd:boolean" use="optional" />
+      <xsd:attribute name="enable-wildcard-subscriptions" type="xsd:boolean" use="optional" />
       <xsd:attributeGroup ref="xml:specialAttrs"/>
    </xsd:complexType>
 
