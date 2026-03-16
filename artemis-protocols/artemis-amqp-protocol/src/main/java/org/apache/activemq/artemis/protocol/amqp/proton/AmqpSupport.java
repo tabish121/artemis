@@ -114,12 +114,26 @@ public class AmqpSupport {
    public static final Symbol CORE_MESSAGE_TUNNELING_SUPPORT = Symbol.getSymbol("AMQ_CORE_MESSAGE_TUNNELING");
 
    /**
-    * Property value that can be applied to federation and bridge configurations that controls if the various links
+    * A capability added to the sender or receiver links that indicate that the link either wants support for or offers
+    * support for compressing and decompressing messages as custom formatted AMQP messages during transit.
+    */
+   public static final Symbol INFLIGHT_MESSAGE_COMPRESSION_SUPPORT = Symbol.getSymbol("AMQ_INFLIGHT_MESSAGE_COMPRESSION");
+
+   /**
+    * Property value that can be applied to some broker connection configurations that controls if the various links
     * will request that the opposing peers link tunnel core messages inside an AMQP message as a binary blob to be
     * unwrapped on the other side. The sending peer would still need to support this feature for message tunneling to
     * occur.
     */
    public static final String TUNNEL_CORE_MESSAGES = "tunnel-core-messages";
+
+   /**
+    * Property value that can be applied to some broker connection configurations that controls if the various links
+    * will request that the opposing peers link should compress messages before putting them on the wire. The sending
+    * peer would still need to support this feature for message compression to occur. Messages are compressed only in-
+    * flight and are decompressed on the receiver before being routed.
+    */
+   public static final String COMPRESS_INFLIGHT_MESSAGES = "compress-inflight-messages";
 
    /**
     * A priority value added to a remote receiver link attach that indicates the desired priority for the receiver

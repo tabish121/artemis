@@ -36,6 +36,7 @@ import org.apache.activemq.artemis.core.paging.PagingStore;
 import org.apache.activemq.artemis.core.persistence.CoreMessageObjectPools;
 import org.apache.activemq.artemis.core.persistence.OperationContext;
 import org.apache.activemq.artemis.core.persistence.StorageManager;
+import org.apache.activemq.artemis.core.persistence.impl.nullpm.NullStorageManager;
 import org.apache.activemq.artemis.core.security.CheckType;
 import org.apache.activemq.artemis.core.security.SecurityAuth;
 import org.apache.activemq.artemis.core.server.AddressQueryResult;
@@ -94,6 +95,8 @@ public class AMQPSessionCallback implements SessionCallback {
 
    private final StorageManager storageManager;
 
+   private final boolean nullStorageManager;
+
    private final AMQPConnectionContext connection;
 
    private final Connection transportConnection;
@@ -123,6 +126,7 @@ public class AMQPSessionCallback implements SessionCallback {
       this.protonSPI = protonSPI;
       this.manager = manager;
       this.storageManager = manager.getServer().getStorageManager();
+      this.nullStorageManager = storageManager instanceof NullStorageManager;
       this.connection = connection;
       this.transportConnection = transportConnection;
       this.sessionExecutor = executor;
@@ -132,6 +136,10 @@ public class AMQPSessionCallback implements SessionCallback {
 
    public StorageManager getStorageManager() {
       return storageManager;
+   }
+
+   public boolean isNullStorageManager() {
+      return nullStorageManager;
    }
 
    public CoreMessageObjectPools getCoreMessageObjectPools() {

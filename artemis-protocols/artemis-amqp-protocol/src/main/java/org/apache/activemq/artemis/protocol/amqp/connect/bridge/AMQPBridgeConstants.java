@@ -219,6 +219,13 @@ public final class AMQPBridgeConstants {
    public static final boolean DEFAULT_CORE_MESSAGE_TUNNELING_ENABLED = true;
 
    /**
+    * Default value for the inf-flight message compression feature that indicates if messages sent should be streamed
+    * as compressed blobs as the payload of an custom AMQP message which will then be inflated on the receiver and works
+    * along with message tunneling to preserve the original source message type.
+    */
+   public static final boolean DEFAULT_INFLIGHT_MESSAGE_COMPRESSION_ENABLED = false;
+
+   /**
     * Default priority adjustment used for a bridge queue policy if no value was specific in the
     * broker configuration file.
     */

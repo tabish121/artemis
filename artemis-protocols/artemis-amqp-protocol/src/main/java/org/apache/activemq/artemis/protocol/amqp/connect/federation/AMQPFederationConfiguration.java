@@ -66,6 +66,13 @@ public final class AMQPFederationConfiguration {
    public static final boolean DEFAULT_CORE_MESSAGE_TUNNELING_ENABLED = true;
 
    /**
+    * Default value for the inf-flight message compression feature that indicates if messages sent should be streamed
+    * as compressed blobs as the payload of an custom AMQP message which will then be inflated on the receiver and works
+    * along with message tunneling to preserve the original source message type.
+    */
+   public static final boolean DEFAULT_INFLIGHT_MESSAGE_COMPRESSION_ENABLED = false;
+
+   /**
     * Default value for the filtering applied to federation address consumers that controls if the filter specified by an
     * address binding is used or if the filters are ignored and a single conduit type subscription is used for all messages
     * sent to the remote address.
@@ -217,6 +224,20 @@ public final class AMQPFederationConfiguration {
          return Boolean.parseBoolean(string);
       } else {
          return DEFAULT_CORE_MESSAGE_TUNNELING_ENABLED;
+      }
+   }
+
+   /**
+    * {@return {@code true} if the federation is configured to compress in-flight messages as AMQP custom messages}
+    */
+   public boolean isInflightMessageCompressionEnabled() {
+      final Object property = properties.get(AmqpSupport.COMPRESS_INFLIGHT_MESSAGES);
+      if (property instanceof Boolean booleanValue) {
+         return booleanValue;
+      } else if (property instanceof String string) {
+         return Boolean.parseBoolean(string);
+      } else {
+         return DEFAULT_INFLIGHT_MESSAGE_COMPRESSION_ENABLED;
       }
    }
 
@@ -373,6 +394,7 @@ public final class AMQPFederationConfiguration {
       configMap.put(RECEIVER_LINK_QUIESCE_TIMEOUT, getLinkQuiesceTimeout());
       configMap.put(RECEIVER_DRAIN_ON_TRANSIENT_DELIVERY_ERRORS, isDrainOnTransientDeliveryErrors());
       configMap.put(AmqpSupport.TUNNEL_CORE_MESSAGES, isCoreMessageTunnelingEnabled());
+      configMap.put(AmqpSupport.COMPRESS_INFLIGHT_MESSAGES, isInflightMessageCompressionEnabled());
 
       return configMap;
    }

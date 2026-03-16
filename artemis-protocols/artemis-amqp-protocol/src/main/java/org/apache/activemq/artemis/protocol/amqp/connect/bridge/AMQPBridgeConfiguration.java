@@ -174,6 +174,20 @@ public class AMQPBridgeConfiguration {
    }
 
    /**
+    * {@return true if the bridge is configured to compress messages as AMQP custom messages}
+    */
+   public boolean isInflightMessageCompressionEnabled() {
+      final Object property = properties.get(AmqpSupport.COMPRESS_INFLIGHT_MESSAGES);
+      if (property instanceof Boolean) {
+         return (Boolean) property;
+      } else if (property instanceof String) {
+         return Boolean.parseBoolean((String) property);
+      } else {
+         return DEFAULT_CORE_MESSAGE_TUNNELING_ENABLED;
+      }
+   }
+
+   /**
     * {@return <code>true</code> if the bridge is configured to ignore filters on individual queue consumers}
     */
    public boolean isIgnoreSubscriptionFilters() {
