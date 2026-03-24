@@ -57,8 +57,8 @@ import static org.apache.activemq.artemis.protocol.amqp.connect.federation.AMQPF
 import static org.apache.activemq.artemis.protocol.amqp.connect.federation.AMQPFederationPolicySupport.FEDERATED_ADDRESS_SOURCE_PROPERTIES;
 import static org.apache.activemq.artemis.protocol.amqp.connect.federation.AMQPFederationPolicySupport.MESSAGE_HOPS_ANNOTATION;
 import static org.apache.activemq.artemis.protocol.amqp.connect.federation.AMQPFederationPolicySupport.generateAddressFilter;
-import static org.apache.activemq.artemis.protocol.amqp.proton.AMQPTunneledMessageConstants.AMQP_TUNNELED_CORE_LARGE_MESSAGE_FORMAT;
-import static org.apache.activemq.artemis.protocol.amqp.proton.AMQPTunneledMessageConstants.AMQP_TUNNELED_CORE_MESSAGE_FORMAT;
+import static org.apache.activemq.artemis.protocol.amqp.proton.AMQPArtemisMessageFormats.AMQP_TUNNELED_CORE_LARGE_MESSAGE_FORMAT;
+import static org.apache.activemq.artemis.protocol.amqp.proton.AMQPArtemisMessageFormats.AMQP_TUNNELED_CORE_MESSAGE_FORMAT;
 import static org.hamcrest.CoreMatchers.allOf;
 import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.CoreMatchers.not;
@@ -2870,7 +2870,8 @@ public class AMQPFederationAddressPolicyTest extends AmqpClientTestSupport {
          peer.waitForScriptToComplete(5, TimeUnit.SECONDS);
          peer.expectAttach().ofSender().withName("federation-address-receiver")
                                        .withOfferedCapabilities(FEDERATION_ADDRESS_RECEIVER.toString())
-                                       .withDesiredCapabilities(AmqpSupport.CORE_MESSAGE_TUNNELING_SUPPORT.toString())
+                                       .withDesiredCapabilities(AmqpSupport.CORE_MESSAGE_TUNNELING_SUPPORT.toString(),
+                                                                AmqpSupport.INFLIGHT_MESSAGE_COMPRESSION_SUPPORT.toString())
                                        .withSource().withAddress("test");
 
          // Connect to remote as if an address had demand and matched our federation policy
@@ -2949,7 +2950,8 @@ public class AMQPFederationAddressPolicyTest extends AmqpClientTestSupport {
          peer.waitForScriptToComplete(5, TimeUnit.SECONDS);
          peer.expectAttach().ofSender().withName("federation-address-receiver")
                                        .withOfferedCapabilities(FEDERATION_ADDRESS_RECEIVER.toString())
-                                       .withDesiredCapabilities(AmqpSupport.CORE_MESSAGE_TUNNELING_SUPPORT.toString())
+                                       .withDesiredCapabilities(AmqpSupport.CORE_MESSAGE_TUNNELING_SUPPORT.toString(),
+                                                                AmqpSupport.INFLIGHT_MESSAGE_COMPRESSION_SUPPORT.toString())
                                        .withSource().withAddress("test");
 
          // Connect to remote as if an address had demand and matched our federation policy

@@ -17,7 +17,7 @@
 
 package org.apache.activemq.artemis.protocol.amqp.proton;
 
-import static org.apache.activemq.artemis.protocol.amqp.proton.AMQPTunneledMessageConstants.AMQP_TUNNELED_CORE_LARGE_MESSAGE_FORMAT;
+import static org.apache.activemq.artemis.protocol.amqp.proton.AMQPArtemisMessageFormats.AMQP_TUNNELED_CORE_LARGE_MESSAGE_FORMAT;
 
 import java.lang.invoke.MethodHandles;
 

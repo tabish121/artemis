@@ -35,7 +35,6 @@ public class AMQPRoutingHandler extends RoutingHandler<AMQPRoutingContext> {
       super(server);
    }
 
-
    public boolean route(AMQPConnectionContext connectionContext, Connection protonConnection) throws Exception {
       return route(new AMQPRoutingContext(connectionContext, protonConnection));
    }
@@ -50,6 +49,8 @@ public class AMQPRoutingHandler extends RoutingHandler<AMQPRoutingContext> {
             break;
          case REFUSED_UNAVAILABLE:
             error.setDescription(String.format("Connection router %s is not ready", context.getRouter()));
+            break;
+         default:
             break;
       }
 
