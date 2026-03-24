@@ -19,6 +19,7 @@ package org.apache.activemq.artemis.protocol.amqp.proton;
 
 import static org.apache.activemq.artemis.protocol.amqp.proton.AmqpSupport.COPY;
 import static org.apache.activemq.artemis.protocol.amqp.proton.AmqpSupport.CORE_MESSAGE_TUNNELING_SUPPORT;
+import static org.apache.activemq.artemis.protocol.amqp.proton.AmqpSupport.INFLIGHT_MESSAGE_COMPRESSION_SUPPORT;
 import static org.apache.activemq.artemis.protocol.amqp.proton.AmqpSupport.GLOBAL;
 import static org.apache.activemq.artemis.protocol.amqp.proton.AmqpSupport.QUEUE_CAPABILITY;
 import static org.apache.activemq.artemis.protocol.amqp.proton.AmqpSupport.SHARED;
@@ -30,8 +31,10 @@ import static org.apache.activemq.artemis.protocol.amqp.proton.AmqpSupport.verif
 import static org.apache.activemq.artemis.protocol.amqp.proton.AmqpSupport.verifySourceCapability;
 
 import java.lang.invoke.MethodHandles;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -93,14 +96,14 @@ public class DefaultSenderController implements SenderController {
    private final String clientId;
 
    // A cached AMQP message writers married to the server sender instance on initialization
-   private AMQPMessageWriter standardMessageWriter;
-   private AMQPLargeMessageWriter largeMessageWriter;
+   private MessageWriter standardMessageWriter;
+   private MessageWriter largeMessageWriter;
 
    // A cached Core message writers married to the server sender instance on initialization
-   private AMQPTunneledCoreMessageWriter coreMessageWriter;
-   private AMQPTunneledCoreLargeMessageWriter coreLargeMessageWriter;
-   private boolean coreTunnelingEnabled;
+   private MessageWriter coreMessageWriter;
+   private MessageWriter coreLargeMessageWriter;
 
+   private boolean coreTunnelingEnabled;
    private boolean shared;
    private boolean global;
    private boolean multicast;
@@ -122,8 +125,17 @@ public class DefaultSenderController implements SenderController {
    public Consumer init(ProtonServerSenderContext senderContext) throws Exception {
       validateConnectionState();
 
-      this.standardMessageWriter = new AMQPMessageWriter(senderContext);
-      this.largeMessageWriter = new AMQPLargeMessageWriter(senderContext);
+      final List<Symbol> desiredCapabilities = new ArrayList<>();
+
+      // If the remote receiver says it can accept compressed inflight messages then that's what we will send them
+      if (verifyOfferedCapabilities(protonSender, INFLIGHT_MESSAGE_COMPRESSION_SUPPORT)) {
+         desiredCapabilities.add(INFLIGHT_MESSAGE_COMPRESSION_SUPPORT);
+         standardMessageWriter = new AMQPMessageDeflatingWriter(senderContext);
+         largeMessageWriter = new AMQPLargeMessageDelatingWriter(senderContext);
+      } else {
+         standardMessageWriter = new AMQPMessageWriter(senderContext);
+         largeMessageWriter = new AMQPLargeMessageWriter(senderContext);
+      }
 
       Map<String, String> addressParameters = Collections.emptyMap();
       Source source = (Source) protonSender.getRemoteSource();
@@ -137,11 +149,13 @@ public class DefaultSenderController implements SenderController {
 
       // If the remote receiver says it can accept tunneled core then that's what we will send them
       if (verifyOfferedCapabilities(protonSender, CORE_MESSAGE_TUNNELING_SUPPORT)) {
-         protonSender.setDesiredCapabilities(new Symbol[] {CORE_MESSAGE_TUNNELING_SUPPORT});
+         desiredCapabilities.add(CORE_MESSAGE_TUNNELING_SUPPORT);
          coreTunnelingEnabled = true;
          coreMessageWriter = new AMQPTunneledCoreMessageWriter(senderContext);
          coreLargeMessageWriter = new AMQPTunneledCoreLargeMessageWriter(senderContext);
       }
+
+      protonSender.setDesiredCapabilities(desiredCapabilities.isEmpty() ? null : desiredCapabilities.toArray(new Symbol[0]));
 
       if (source != null) {
          // We look for message selectors on every receiver, while in other cases we might only

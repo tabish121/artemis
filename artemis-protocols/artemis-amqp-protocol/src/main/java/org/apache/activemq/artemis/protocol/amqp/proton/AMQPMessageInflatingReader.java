@@ -18,12 +18,11 @@
 package org.apache.activemq.artemis.protocol.amqp.proton;
 
 import java.nio.ByteBuffer;
+import java.util.zip.Inflater;
 
-import org.apache.activemq.artemis.api.core.ActiveMQBuffer;
-import org.apache.activemq.artemis.api.core.ActiveMQBuffers;
 import org.apache.activemq.artemis.api.core.Message;
-import org.apache.activemq.artemis.core.message.impl.CoreMessage;
-import org.apache.activemq.artemis.protocol.amqp.broker.AMQPSessionCallback;
+import org.apache.activemq.artemis.protocol.amqp.broker.AMQPMessage;
+import org.apache.activemq.artemis.protocol.amqp.util.NettyReadable;
 import org.apache.activemq.artemis.protocol.amqp.util.TLSEncode;
 import org.apache.qpid.proton.amqp.Binary;
 import org.apache.qpid.proton.amqp.messaging.AmqpSequence;
@@ -41,19 +40,24 @@ import org.apache.qpid.proton.codec.TypeConstructor;
 import org.apache.qpid.proton.engine.Delivery;
 import org.apache.qpid.proton.engine.Receiver;
 
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.Unpooled;
+
 /**
- * Reader of tunneled Core message that have been written as the body of an AMQP delivery with a custom message format
- * that indicates this payload. The reader will extract bytes from the delivery and decode from them a standard Core
- * message which is then routed into the broker as if received from a Core connection.
+ * Reader of AMQP (non-large) messages which reads all bytes and decodes once a non-partial
+ * delivery is read.
  */
-public class AMQPTunneledCoreMessageReader implements MessageReader {
+public class AMQPMessageInflatingReader implements MessageReader {
+
+   private static final int INFLATE_MIN_WRITE_LIMIT = 2048;
 
    private final ProtonAbstractReceiver serverReceiver;
+   private final Inflater inflater = new Inflater();
 
-   private boolean closed = true;
    private DeliveryAnnotations deliveryAnnotations;
+   private boolean closed = true;
 
-   public AMQPTunneledCoreMessageReader(ProtonAbstractReceiver serverReceiver) {
+   public AMQPMessageInflatingReader(ProtonAbstractReceiver serverReceiver) {
       this.serverReceiver = serverReceiver;
    }
 
@@ -64,6 +68,7 @@ public class AMQPTunneledCoreMessageReader implements MessageReader {
 
    @Override
    public void close() {
+      inflater.reset();
       closed = true;
       deliveryAnnotations = null;
    }
@@ -83,12 +88,21 @@ public class AMQPTunneledCoreMessageReader implements MessageReader {
          return null; // Only receive payload when complete
       }
 
-      final AMQPSessionCallback sessionSPI = serverReceiver.getSessionContext().getSessionSPI();
+      // The scan will pickup the delivery annotations as part of the process of searching for the
+      // message body data section containing the compressed bytes.
+      final Binary payloadBinary = scanForMessagePayload(delivery);
+      final ReadableBuffer payload = inflateBufferFromBinary(payloadBinary);
+      final AMQPMessage message = serverReceiver.getSessionContext().getSessionSPI().createStandardMessage(delivery, payload);
+
+      return message;
+   }
+
+   protected Binary scanForMessagePayload(Delivery delivery) {
       final Receiver receiver = ((Receiver) delivery.getLink());
       final ReadableBuffer recievedBuffer = receiver.recv();
 
       if (recievedBuffer.remaining() == 0) {
-         throw new IllegalArgumentException("Received empty delivery when expecting a core message encoding");
+         throw new IllegalArgumentException("Received empty delivery when expecting a compressed AMQP message encoding");
       }
 
       final DecoderImpl decoder = TLSEncode.getDecoder();
@@ -113,17 +127,17 @@ public class AMQPTunneledCoreMessageReader implements MessageReader {
                constructor.skipValue(); // Ignore for forward compatibility
             } else if (Data.class.equals(constructor.getTypeClass())) {
                if (payloadData != null) {
-                  throw new IllegalArgumentException("Received an unexpected additional Data section in core tunneled AMQP message");
+                  throw new IllegalArgumentException("Received an unexpected additional Data section in compressed AMQP message");
                }
 
                payloadData = (Data) constructor.readValue();
             } else if (AmqpValue.class.equals(constructor.getTypeClass())) {
-               throw new IllegalArgumentException("Received an AmqpValue payload in core tunneled AMQP message");
+               throw new IllegalArgumentException("Received an AmqpValue payload in compressed AMQP message");
             } else if (AmqpSequence.class.equals(constructor.getTypeClass())) {
-               throw new IllegalArgumentException("Received an AmqpSequence payload in core tunneled AMQP message");
+               throw new IllegalArgumentException("Received an AmqpSequence payload in compressed AMQP message");
             } else if (Footer.class.equals(constructor.getTypeClass())) {
                if (payloadData == null) {
-                  throw new IllegalArgumentException("Received an Footer but no actual message payload in core tunneled AMQP message");
+                  throw new IllegalArgumentException("Received a Footer but no actual message payload in compressed AMQP message");
                }
 
                constructor.skipValue(); // Ignore for forward compatibility
@@ -134,7 +148,7 @@ public class AMQPTunneledCoreMessageReader implements MessageReader {
       }
 
       if (payloadData == null) {
-         throw new IllegalArgumentException("Did not receive a Data section payload in core tunneled AMQP message");
+         throw new IllegalArgumentException("Did not receive a Data section payload in compressed AMQP message");
       }
 
       final Binary payloadBinary = payloadData.getValue();
@@ -143,21 +157,30 @@ public class AMQPTunneledCoreMessageReader implements MessageReader {
          throw new IllegalArgumentException("Received an unexpected empty message payload in core tunneled AMQP message");
       }
 
-      final CoreMessage coreMessage = new CoreMessage(sessionSPI.getCoreMessageObjectPools());
-
-      coreMessage.reloadPersistence(extractBufferFromBinary(payloadBinary), sessionSPI.getCoreMessageObjectPools());
-      coreMessage.setMessageID(sessionSPI.getStorageManager().generateID());
-
-      return coreMessage;
+      return payloadBinary;
    }
 
-   protected ActiveMQBuffer extractBufferFromBinary(Binary payloadBinary) throws Exception {
-      final ByteBuffer payload = payloadBinary.asByteBuffer();
-      final ActiveMQBuffer buffer = ActiveMQBuffers.wrappedBuffer(payload);
+   protected ReadableBuffer inflateBufferFromBinary(Binary payloadBinary) throws Exception {
+      final ByteBuffer input = payloadBinary.asByteBuffer();
+      final ByteBuf output = Unpooled.buffer();
 
-      // Ensure the wrapped buffer readable bytes reflects the data section payload read.
-      buffer.writerIndex(payload.remaining());
+      if (input.hasArray()) {
+         inflater.setInput(input.array(), input.arrayOffset(), input.remaining());
+      } else {
+         inflater.setInput(input);
+      }
 
-      return buffer;
+      int inflateResult = 0;
+
+      while (!inflater.finished()) {
+         // Provide some realized capacity that can be used to write the inflated bytes into
+         output.ensureWritable(INFLATE_MIN_WRITE_LIMIT);
+
+         inflateResult = inflater.inflate(output.internalNioBuffer(output.writerIndex(), output.writableBytes()));
+
+         output.writerIndex(output.writerIndex() + inflateResult);
+      }
+
+      return new NettyReadable(output);
    }
 }

@@ -192,6 +192,20 @@ public final class AMQPFederationConsumerConfiguration {
    }
 
    /**
+    * {@return {@code true} if the federation is configured to compress in-flight messages as AMQP custom messages}
+    */
+   public boolean isInflightMessageCompressionEnabled() {
+      final Object property = properties.get(AmqpSupport.COMPRESS_INFLIGHT_MESSAGES);
+      if (property instanceof Boolean booleanValue) {
+         return booleanValue;
+      } else if (property instanceof String string) {
+         return Boolean.parseBoolean(string);
+      } else {
+         return configuration.isInflightMessageCompressionEnabled();
+      }
+   }
+
+   /**
     * {@return {@code true} if federation is configured to ignore filters on individual address bindings}
     */
    public boolean isIgnoreAddressBindingFilters() {
